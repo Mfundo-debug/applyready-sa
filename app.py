@@ -13,7 +13,7 @@ from pypdf import PdfReader
 
 # =============================================================================
 # ApplyReady SA - Application Pack Readiness Checker
-# Premium MVP: rule-based, privacy-aware, no external AI, no document storage.
+# Version 2.5: rule-based, privacy-aware application fit engine and CV formaliser; no external AI, no document storage.
 # =============================================================================
 
 st.set_page_config(
@@ -459,15 +459,15 @@ DEMO_VALUES = {
     "closing_date": date.today() + timedelta(days=14),
     "advert_text": """Ubuntu Analytics Lab is looking for a Junior Data Analyst Intern. Requirements include basic Python, Excel, SQL, communication skills, report writing, problem solving and teamwork. Applicants should submit a CV, certified ID copy, academic record, certificates and a short motivation letter.""",
     "advert_url": "",
-    "full_name": "name surname",
-    "email": "name@example.com",
+    "full_name": "Taryn Michael",
+    "email": "taryn@example.com",
     "qualification": "BSc Honours in Data Science",
     "field": "Data Science and Analytics",
     "location": "Kimberley, Northern Cape",
     "skills": "Python, Excel, SQL, data analysis, communication, teamwork, report writing",
     "experience": "Completed academic and personal projects involving exploratory data analysis, dashboards, predictive modelling and report writing.",
     "has_formal_experience": "No - I am a first-time applicant",
-    "cv_text": """name surname\nname@example.com | 071 234 5678 | Kimberley, Northern Cape\n\nEducation\nBSc Honours in Data Science, 2025\n\nSkills\nPython, Excel, SQL, data analysis, communication, teamwork, report writing\n\nProjects and Experience\nDeveloped data analysis notebooks using Python. Created dashboards and presented insights from student performance data. Assisted with academic projects involving machine learning and reporting.\n\nReferences available on request.""",
+    "cv_text": """Taryn Michael\ntaryn@example.com | 071 234 5678 | Kimberley, Northern Cape\n\nEducation\nBSc Honours in Data Science, 2025\n\nSkills\nPython, Excel, SQL, data analysis, communication, teamwork, report writing\n\nProjects and Experience\nDeveloped data analysis notebooks using Python. Created dashboards and presented insights from student performance data. Assisted with academic projects involving machine learning and reporting.\n\nReferences available on request.""",
 }
 
 
@@ -1270,6 +1270,178 @@ def build_report(opportunity_type: str, company: str, role: str, closing_date: d
     return buffer.getvalue()
 
 
+def split_list_items(value: str) -> List[str]:
+    """Split comma/newline separated text into clean, unique list items."""
+    items = re.split(r",|\n|;", value or "")
+    return unique_keep_order([item.strip() for item in items if item.strip()])
+
+
+def extract_contact_hints(cv_text: str, email: str, location: str) -> Dict[str, str]:
+    """Extract lightweight contact hints from the CV text without storing the file."""
+    text = cv_text or ""
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
+    phone_match = re.search(r"(\+27|0)[0-9\s-]{8,}", text)
+    return {
+        "email": email.strip() or (email_match.group(0).strip() if email_match else "[Add professional email address]"),
+        "phone": phone_match.group(0).strip() if phone_match else "[Add phone number]",
+        "location": location.strip() or "[Add city/town]",
+    }
+
+
+def build_cv_polish_notes(cv_text: str, qualification: str, skills: str, experience: str, matched_skills: List[str], missing_skills: List[str], first_time: bool) -> List[str]:
+    """Generate concise notes that help the applicant edit the formal CV draft."""
+    text = cv_text or ""
+    lower = text.lower()
+    notes = []
+    if not re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text):
+        notes.append("Add a professional email address near the top of the CV.")
+    if not re.search(r"(\+27|0)[0-9\s-]{8,}", text):
+        notes.append("Add a reachable South African phone number.")
+    if not qualification.strip() and not any(term in lower for term in ["matric", "diploma", "degree", "certificate", "education"]):
+        notes.append("Add education details: qualification, institution and year completed or expected completion year.")
+    if not split_list_items(skills) and not matched_skills:
+        notes.append("Add a focused Skills section with technical and soft skills relevant to the opportunity.")
+    if not experience.strip() and first_time:
+        notes.append("Add at least one project, assignment, volunteering task, leadership role or short course under Practical Experience.")
+    elif not experience.strip():
+        notes.append("Add recent work experience, volunteering, projects or responsibilities with clear bullet points.")
+    if not re.search(r"\b(20\d{2}|19\d{2})\b", text):
+        notes.append("Add dates for studies, certificates, work experience, projects or volunteering.")
+    if missing_skills:
+        notes.append("Review missing advert skills and add only the ones the applicant can honestly explain: " + ", ".join(missing_skills[:6]) + ".")
+    if not any(word in lower for word in ACTION_WORDS):
+        notes.append("Use action words in bullet points, for example: developed, assisted, created, managed, supported or analysed.")
+    if not notes:
+        notes.append("The formal CV draft is ready for manual review. Check spelling, dates and truthfulness before submitting.")
+    return unique_keep_order(notes)
+
+
+def build_formal_cv_markdown(
+    full_name: str,
+    email: str,
+    location: str,
+    qualification: str,
+    field: str,
+    skills: str,
+    experience: str,
+    role: str,
+    company: str,
+    matched_skills: List[str],
+    missing_skills: List[str],
+    first_time: bool,
+    cv_text: str,
+) -> str:
+    """Create a clean, formal, ATS-friendly CV draft using only supplied information."""
+    name_display = clean_sentence_fragment(full_name) or "[Full Name]"
+    contact = extract_contact_hints(cv_text, email, location)
+    role_display = clean_sentence_fragment(role) or "the target opportunity"
+    company_display = clean_sentence_fragment(company)
+    field_display = clean_sentence_fragment(field) or "the relevant field"
+    qualification_display = clean_sentence_fragment(qualification) or "[Add highest qualification]"
+    experience_display = clean_sentence_fragment(experience)
+
+    skill_items = split_list_items(skills)
+    combined_skills = unique_keep_order(matched_skills + skill_items)
+    if not combined_skills:
+        combined_skills = ["Communication", "Teamwork", "Problem solving", "Willingness to learn"]
+
+    skills_block = "\n".join([f"- {skill}" for skill in combined_skills[:12]])
+
+    if first_time:
+        profile = (
+            f"Motivated {field_display} applicant with {qualification_display}. "
+            f"Seeking an opportunity related to {role_display}"
+            + (f" at {company_display}" if company_display else "")
+            + ". Brings a willingness to learn, reliability and practical exposure through studies, projects, volunteering or personal development."
+        )
+        experience_heading = "Projects and Practical Experience"
+        experience_intro = experience_display or "[Add academic assignments, personal projects, volunteering, leadership roles, short courses or community responsibilities.]"
+        experience_bullets = [
+            f"Built practical exposure through {experience_intro}",
+            "Demonstrated learning ability, reliability and commitment through available academic or community-based experience.",
+            f"Prepared to contribute to {role_display} by applying relevant skills and professional communication.",
+        ]
+    else:
+        profile = (
+            f"Professional applicant with a background in {field_display} and {qualification_display}. "
+            f"Interested in {role_display}"
+            + (f" at {company_display}" if company_display else "")
+            + f". Offers strengths in {', '.join(combined_skills[:5])}."
+        )
+        experience_heading = "Work Experience and Projects"
+        experience_intro = experience_display or "[Add recent work experience, internships, volunteering, projects or responsibilities.]"
+        experience_bullets = [
+            f"Experience includes {experience_intro}",
+            "Used relevant skills to support tasks, solve problems and communicate results professionally.",
+            "Able to work responsibly, learn quickly and contribute to team goals.",
+        ]
+
+    opportunity_alignment = []
+    if matched_skills:
+        opportunity_alignment.append("Skills already reflected for this opportunity: " + ", ".join(matched_skills[:8]) + ".")
+    if missing_skills:
+        opportunity_alignment.append("Skills to review and add only if truthful: " + ", ".join(missing_skills[:8]) + ".")
+    if not opportunity_alignment:
+        opportunity_alignment.append("Review the opportunity advert and tailor this CV to the most important requirements.")
+
+    exp_block = "\n".join([f"- {bullet.rstrip('.')} .".replace(' .', '.') for bullet in experience_bullets])
+    align_block = "\n".join([f"- {item}" for item in opportunity_alignment])
+
+    return f"""# {name_display}
+
+{contact['location']} | {contact['phone']} | {contact['email']}
+
+## Professional Profile
+{profile}
+
+## Education
+- {qualification_display}
+- Field of study / interest: {field_display}
+- Institution and year: [Add institution and year]
+
+## Key Skills
+{skills_block}
+
+## {experience_heading}
+{exp_block}
+
+## Opportunity Alignment
+{align_block}
+
+## References
+References available on request.
+
+---
+Editing reminder: replace bracketed placeholders, confirm all dates, and remove anything that is not truthful before submitting.
+"""
+
+
+def formal_cv_to_docx_bytes(cv_markdown: str, full_name: str) -> bytes:
+    """Convert the formal CV markdown draft into a simple DOCX document."""
+    document = Document()
+    document.core_properties.title = "ApplyReady SA Formal CV Draft"
+    document.core_properties.author = "ApplyReady SA"
+
+    for raw_line in cv_markdown.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("# "):
+            document.add_heading(line[2:].strip(), level=0)
+        elif line.startswith("## "):
+            document.add_heading(line[3:].strip(), level=1)
+        elif line.startswith("- "):
+            document.add_paragraph(line[2:].strip(), style="List Bullet")
+        elif line.startswith("---"):
+            continue
+        else:
+            document.add_paragraph(line)
+
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
 def html_score_card(label: str, value: str, hint: str) -> str:
     return f"""
     <div class="score-card">
@@ -1312,13 +1484,13 @@ with st.sidebar:
     st.caption("Application pack readiness checker")
     st.markdown("---")
     st.markdown("**Best use**")
-    st.write("Paste/upload an advert, add applicant details, upload or tick available documents, then use the readiness report before applying.")
+    st.write("Paste/upload an advert, add applicant details, upload or tick available documents, then use the readiness report and CV draft before applying.")
     st.markdown("---")
     if st.button("Load polished demo data", use_container_width=True):
         load_demo()
         st.rerun()
     st.markdown("---")
-    st.markdown("**Privacy-first MVP**")
+    st.markdown("**Privacy-first beta**")
     st.write("No external AI API. Uploaded files are processed in memory only and are not stored by the app.")
 
 # =============================================================================
@@ -1328,13 +1500,13 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero">
-        <div class="hero-kicker">Built for job seekers, students and first-time applicants</div>
+        <div class="hero-kicker">Version 2.5 beta • Built for job seekers, students and first-time applicants</div>
         <h1>ApplyReady SA</h1>
-        <p>Prepare a complete, professional and opportunity-aligned application pack before you submit. Check missing documents, CV readiness, keyword alignment, email quality and file naming in one place.</p>
+        <p>Prepare a complete, professional and opportunity-aligned application pack before you submit. Check missing documents, CV readiness, keyword alignment, email quality, file naming and create a formal CV draft in one place.</p>
         <div class="hero-grid">
             <div class="hero-stat"><strong>01</strong><span>Check application readiness</span></div>
             <div class="hero-stat"><strong>02</strong><span>Fix missing documents and weak CV signals</span></div>
-            <div class="hero-stat"><strong>03</strong><span>Generate a submission-ready report</span></div>
+            <div class="hero-stat"><strong>03</strong><span>Generate a report and formal CV draft</span></div>
         </div>
     </div>
     """,
@@ -1347,11 +1519,11 @@ with c1:
 with c2:
     st.markdown("""<div class="mini-card"><div class="icon">↗</div><h3>Advert alignment</h3><p>Accepts pasted adverts, uploaded advert files or public job-description links, then checks whether the CV reflects relevant skills honestly.</p></div>""", unsafe_allow_html=True)
 with c3:
-    st.markdown("""<div class="mini-card"><div class="icon">✦</div><h3>Professional pack</h3><p>Supports document upload, CV text extraction, motivation-letter drafts, email drafts, file-name suggestions and a downloadable report.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="mini-card"><div class="icon">✦</div><h3>Professional pack</h3><p>Supports document upload, CV text extraction, formal CV drafting, motivation-letter drafts, email drafts, file-name suggestions and a downloadable report.</p></div>""", unsafe_allow_html=True)
 
 st.write("")
-setup_tab, docs_tab, fit_tab, results_tab, drafts_tab, tracker_tab = st.tabs(
-    ["1. Setup", "2. Documents & CV", "3. Fit Engine", "4. Results", "5. Drafts & pack", "6. Tracker"]
+setup_tab, docs_tab, fit_tab, cv_formaliser_tab, results_tab, drafts_tab, tracker_tab = st.tabs(
+    ["1. Setup", "2. Documents & CV", "3. Fit Engine", "4. CV Formaliser", "5. Results", "6. Drafts & pack", "7. Tracker"]
 )
 
 # =============================================================================
@@ -1424,7 +1596,7 @@ with setup_tab:
     section_title("2", "Applicant profile", "Basic information used to assess readiness and generate application drafts.")
     a, b = st.columns(2)
     with a:
-        st.text_input("Full name", placeholder="Example: name surname", key="full_name")
+        st.text_input("Full name", placeholder="Example: Taryn Michael", key="full_name")
         st.text_input("Email address", placeholder="Example: name@email.com", key="email")
         st.text_input("Highest qualification", placeholder="Example: Diploma in IT / BSc Data Science / Matric", key="qualification")
         st.text_input("Field of study / interest", placeholder="Example: Data Science, IT, Business Admin", key="field")
@@ -1606,6 +1778,32 @@ whatsapp_summary = build_whatsapp_summary(
     fit_results["recommendations"],
 )
 
+formal_cv_markdown = build_formal_cv_markdown(
+    full_name=full_name,
+    email=email,
+    location=location,
+    qualification=qualification,
+    field=field,
+    skills=skills,
+    experience=experience,
+    role=role,
+    company=company,
+    matched_skills=fit_results["matched_skills"],
+    missing_skills=fit_results["missing_skills"],
+    first_time=fit_results["first_time"],
+    cv_text=cv_text,
+)
+cv_polish_notes = build_cv_polish_notes(
+    cv_text=cv_text,
+    qualification=qualification,
+    skills=skills,
+    experience=experience,
+    matched_skills=fit_results["matched_skills"],
+    missing_skills=fit_results["missing_skills"],
+    first_time=fit_results["first_time"],
+)
+formal_cv_docx = formal_cv_to_docx_bytes(formal_cv_markdown, full_name)
+
 # =============================================================================
 # Fit Engine
 # =============================================================================
@@ -1679,11 +1877,73 @@ with fit_tab:
         st.markdown('</div>', unsafe_allow_html=True)
 
 # =============================================================================
+# CV Formaliser
+# =============================================================================
+
+with cv_formaliser_tab:
+    section_title("6", "CV Formaliser", "Create a cleaner, more formal CV draft from the uploaded/pasted CV and applicant profile.")
+
+    top_left, top_right = st.columns([1.05, 0.95])
+    with top_left:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("Formal CV draft")
+        st.caption("This is a structured draft, not a final guarantee. Edit it before submitting and remove anything that is not accurate.")
+        st.text_area("ATS-friendly formal CV draft", value=formal_cv_markdown, height=620)
+        col_md, col_docx = st.columns(2)
+        with col_md:
+            st.download_button(
+                "Download CV draft as Markdown",
+                data=formal_cv_markdown.encode("utf-8"),
+                file_name=f"{clean_name_for_file(full_name)}_Formal_CV_Draft.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        with col_docx:
+            st.download_button(
+                "Download CV draft as Word document",
+                data=formal_cv_docx,
+                file_name=f"{clean_name_for_file(full_name)}_Formal_CV_Draft.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with top_right:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("Polish checklist")
+        st.caption("Fix these before sending the CV to an employer, bursary provider or programme coordinator.")
+        for note in cv_polish_notes:
+            st.markdown(f'<div class="fix-card"><strong>Check:</strong> <span>{safe_html(note)}</span></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("What this feature does")
+        st.markdown(
+            """
+            - Reorganises the applicant's supplied information into a formal CV structure.  
+            - Uses the opportunity fit results to highlight relevant skills.  
+            - Supports first-time applicants by using projects, coursework or volunteering as evidence.  
+            - Does **not** invent experience, qualifications or skills.
+            """
+        )
+        st.warning("Before submitting, replace bracketed placeholders, add institution names and dates, and verify every statement.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("Suggested next edits")
+        if fit_results["missing_skills"]:
+            st.write("Review these advert skills. Add only the ones the applicant genuinely has:")
+            st.markdown("".join([f'<span class="pill amber">{safe_html(skill)}</span>' for skill in fit_results["missing_skills"][:8]]), unsafe_allow_html=True)
+        else:
+            st.success("The current CV/profile already reflects the main detected advert skills.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =============================================================================
 # Results
 # =============================================================================
 
 with results_tab:
-    section_title("6", "Application readiness results", "Review the score, missing items and key fixes before submitting.")
+    section_title("7", "Application readiness results", "Review the score, missing items and key fixes before submitting.")
     r1, r2, r3, r4 = st.columns(4)
     with r1:
         st.markdown(html_score_card("Total score", f"{final_score}/100", label), unsafe_allow_html=True)
@@ -1762,12 +2022,12 @@ with drafts_tab:
     d1, d2 = st.columns(2)
     with d1:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        section_title("7", "Motivation letter draft", "Template-based draft. Edit before sending and keep it truthful.")
+        section_title("8", "Motivation letter draft", "Template-based draft. Edit before sending and keep it truthful.")
         st.text_area("Draft motivation letter", value=motivation_letter, height=420)
         st.markdown('</div>', unsafe_allow_html=True)
     with d2:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        section_title("8", "Professional email draft", "Subject line, body and attachment list for the application email.")
+        section_title("9", "Professional email draft", "Subject line, body and attachment list for the application email.")
         st.text_input("Email subject", value=email_subject)
         st.text_area("Email body", value=email_body, height=337)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1775,17 +2035,17 @@ with drafts_tab:
     p1, p2 = st.columns(2)
     with p1:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        section_title("9", "Interview preparation pack", "Likely questions, answer structure and practical preparation notes.")
+        section_title("10", "Interview preparation pack", "Likely questions, answer structure and practical preparation notes.")
         st.text_area("Interview pack", value=interview_pack, height=370)
         st.markdown('</div>', unsafe_allow_html=True)
     with p2:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        section_title("10", "WhatsApp-friendly summary", "Short summary the applicant can save, copy or send to someone helping them.")
+        section_title("11", "WhatsApp-friendly summary", "Short summary the applicant can save, copy or send to someone helping them.")
         st.text_area("WhatsApp summary", value=whatsapp_summary, height=370)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    section_title("11", "Downloadable readiness report", "Save the full application preparation report as a Markdown file.")
+    section_title("12", "Downloadable readiness report", "Save the full application preparation report as a Markdown file.")
     report = build_report(
         opportunity_type=opportunity_type,
         company=company,
@@ -1835,7 +2095,7 @@ with drafts_tab:
 
 with tracker_tab:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    section_title("12", "Application tracker", "Track submitted opportunities during the current browser session.")
+    section_title("13", "Application tracker", "Track submitted opportunities during the current browser session.")
     t1, t2, t3 = st.columns([1, 1, 1])
     with t1:
         status = st.selectbox("Application status", ["Preparing", "Submitted", "Waiting for response", "Interview", "Rejected", "Successful"])
