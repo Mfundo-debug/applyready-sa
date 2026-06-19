@@ -459,15 +459,15 @@ DEMO_VALUES = {
     "closing_date": date.today() + timedelta(days=14),
     "advert_text": """Ubuntu Analytics Lab is looking for a Junior Data Analyst Intern. Requirements include basic Python, Excel, SQL, communication skills, report writing, problem solving and teamwork. Applicants should submit a CV, certified ID copy, academic record, certificates and a short motivation letter.""",
     "advert_url": "",
-    "full_name": "Taryn Michael",
-    "email": "taryn@example.com",
+    "full_name": "name surname",
+    "email": "name@example.com",
     "qualification": "BSc Honours in Data Science",
     "field": "Data Science and Analytics",
     "location": "Kimberley, Northern Cape",
     "skills": "Python, Excel, SQL, data analysis, communication, teamwork, report writing",
     "experience": "Completed academic and personal projects involving exploratory data analysis, dashboards, predictive modelling and report writing.",
     "has_formal_experience": "No - I am a first-time applicant",
-    "cv_text": """Taryn Michael\ntaryn@example.com | 071 234 5678 | Kimberley, Northern Cape\n\nEducation\nBSc Honours in Data Science, 2025\n\nSkills\nPython, Excel, SQL, data analysis, communication, teamwork, report writing\n\nProjects and Experience\nDeveloped data analysis notebooks using Python. Created dashboards and presented insights from student performance data. Assisted with academic projects involving machine learning and reporting.\n\nReferences available on request.""",
+    "cv_text": """name surname\nname@example.com | 021 548 2278 | Kimberley, Northern Cape\n\nEducation\nBSc Honours in Data Science, 2025\n\nSkills\nPython, Excel, SQL, data analysis, communication, teamwork, report writing\n\nProjects and Experience\nDeveloped data analysis notebooks using Python. Created dashboards and presented insights from student performance data. Assisted with academic projects involving machine learning and reporting.\n\nReferences available on request.""",
 }
 
 
@@ -1596,7 +1596,7 @@ with setup_tab:
     section_title("2", "Applicant profile", "Basic information used to assess readiness and generate application drafts.")
     a, b = st.columns(2)
     with a:
-        st.text_input("Full name", placeholder="Example: Taryn Michael", key="full_name")
+        st.text_input("Full name", placeholder="Example: name surname", key="full_name")
         st.text_input("Email address", placeholder="Example: name@email.com", key="email")
         st.text_input("Highest qualification", placeholder="Example: Diploma in IT / BSc Data Science / Matric", key="qualification")
         st.text_input("Field of study / interest", placeholder="Example: Data Science, IT, Business Admin", key="field")
